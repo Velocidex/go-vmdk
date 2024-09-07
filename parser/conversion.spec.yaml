@@ -1,0 +1,7 @@
+Module: parser
+Profile: VMDKProfile
+Filename: vmdk_profile.json
+GenerateDebugString: true
+Structs:
+  - SparseExtentHeader
+  - Misc

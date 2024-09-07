@@ -1,0 +1,19 @@
+{
+    "SparseExtentHeader": [0, {
+        "magicNumber": [0, ["unsigned long"]],
+        "version": [4, ["unsigned long"]],
+        "flags": [8, ["unsigned long"]],
+        "capacity": [12, ["unsigned long long"]],
+        "grainSize": [20, ["unsigned long long"]],
+        "descriptorOffset": [28, ["unsigned long long"]],
+        "descriptorSize": [36, ["unsigned long long"]],
+        "numGTEsPerGT": [44, ["unsigned long"]],
+        "rgdOffset": [48, ["unsigned long long"]],
+        "gdOffset": [56, ["unsigned long long"]],
+        "overHead": [64, ["unsigned long long"]],
+        "compressAlgorithm": [77, ["unsigned short"]]
+    }],
+    "Misc": [0, {
+        "a": [0, ["Array", {"count": 0, "target": "unsigned long"}]]
+    }]
+}
