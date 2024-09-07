@@ -3,8 +3,8 @@ module github.com/Velocidex/go-vmdk
 go 1.22.2
 
 require (
-	github.com/Velocidex/go-fat v0.0.0-20230923165230-3e6c4265297a
 	github.com/alecthomas/kingpin/v2 v2.4.0
+	github.com/sebdah/goldie v1.0.0
 	www.velocidex.com/golang/go-ntfs v0.2.0
 )
 

@@ -23,7 +23,7 @@ type VMDKContext struct {
 	profile *VMDKProfile
 	reader  io.ReaderAt
 
-	extents []*SparseExtent
+	extents []Extent
 
 	total_size int64
 }
@@ -44,49 +44,99 @@ func (self *VMDKContext) Close() {
 	}
 }
 
-func (self *VMDKContext) getGrainForOffset(offset int64) (
-	reader io.ReaderAt, start, length int64, err error) {
+func (self *VMDKContext) getExtentForOffset(offset int64) (
+	extent Extent, err error) {
 
-	n, _ := slices.BinarySearchFunc(self.extents,
-		offset, func(item *SparseExtent, offset int64) int {
-			if offset < item.offset {
+	n, found := slices.BinarySearchFunc(self.extents,
+		offset, func(item Extent, offset int64) int {
+			if offset < item.VirtualOffset() {
 				return 1
-			} else if offset == item.offset {
+			} else if offset == item.VirtualOffset() {
 				return 0
 			}
 			return -1
 		})
+	if found {
+		n++
+	}
 
 	if n < 1 || n > len(self.extents) {
-		return nil, 0, 0, io.EOF
+		return nil, io.EOF
 	}
 
-	extent := self.extents[n-1]
-	if extent.offset > offset || extent.offset+extent.total_size < offset {
-		return nil, 0, 0, io.EOF
+	extent = self.extents[n-1]
+	if extent.VirtualOffset() > offset ||
+		extent.VirtualOffset()+extent.TotalSize() < offset {
+		return nil, io.EOF
 	}
 
-	start, length, err = extent.getGrainForOffset(offset - extent.offset)
-	return extent.reader, start, length, err
+	return extent, nil
+}
+
+func (self *VMDKContext) normalizeExtents() {
+	var extents []Extent
+	var offset int64
+
+	// Insert Null Extents
+	for _, e := range self.extents {
+		if e.VirtualOffset() > offset {
+			extents = append(extents, &NullExtent{
+				SparseExtent: SparseExtent{
+					offset:     offset,
+					total_size: e.VirtualOffset() - offset,
+				},
+			})
+		}
+
+		extents = append(extents, e)
+		offset += e.TotalSize()
+	}
+
+	self.extents = extents
 }
 
 func (self *VMDKContext) ReadAt(buf []byte, offset int64) (int, error) {
 	i := int64(0)
 	buf_len := int64(len(buf))
 
+	// First check the offset is valid for the entire file.
+	if offset > self.total_size || offset < 0 {
+		return 0, io.EOF
+	}
+
+	available_length := self.total_size - offset
+	if int64(len(buf)) > available_length {
+		buf = buf[:available_length]
+	}
+
+	// Now add partial reads for each extent
 	for i < buf_len {
-		reader, start, available_length, err := self.getGrainForOffset(offset)
+		extent, err := self.getExtentForOffset(offset + i)
 		if err != nil {
-			return 0, err
+			// Missing extent - zero pad it
+			for i := 0; i < len(buf); i++ {
+				buf[i] = 0
+			}
+			return len(buf), nil
 		}
 
+		index_in_extent := offset + i - extent.VirtualOffset()
+		available_length := extent.TotalSize() - index_in_extent
+
+		// Fill as much of the buffer as possible
 		to_read := buf_len - i
 		if to_read > available_length {
 			to_read = available_length
 		}
-		n, err := reader.ReadAt(buf[i:i+to_read], start)
+
+		n, err := extent.ReadAt(buf[i:i+to_read], index_in_extent)
 		if err != nil && err != io.EOF {
 			return int(i), err
+		}
+
+		// No more data available - we cant make more progress.
+		if n == 0 {
+			break
 		}
 
 		i += int64(n)
@@ -160,6 +210,8 @@ func GetVMDKContext(
 			}
 		}
 	}
+
+	res.normalizeExtents()
 
 	return res, nil
 }

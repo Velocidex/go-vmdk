@@ -12,18 +12,22 @@ type VMDKStats struct {
 	Extents   []ExtentStat `json:"Extents"`
 }
 
+func (self *SparseExtent) Stats() ExtentStat {
+	return ExtentStat{
+		Type:          "SPARSE",
+		VirtualOffset: self.offset,
+		Size:          self.total_size,
+		Filename:      self.filename,
+	}
+}
+
 func (self *VMDKContext) Stats() VMDKStats {
 	res := VMDKStats{
 		TotalSize: self.total_size,
 	}
 
 	for _, e := range self.extents {
-		res.Extents = append(res.Extents, ExtentStat{
-			Type:          "SPARSE",
-			VirtualOffset: e.offset,
-			Size:          e.total_size,
-			Filename:      e.filename,
-		})
+		res.Extents = append(res.Extents, e.Stats())
 	}
 
 	return res
