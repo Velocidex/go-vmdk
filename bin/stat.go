@@ -30,15 +30,15 @@ func doInfo() {
 	kingpin.FatalIfError(err, "Can not open filesystem")
 
 	vmdk, err := parser.GetVMDKContext(reader, int(st.Size()),
-		func(filename string) (reader io.ReaderAt, err error) {
+		func(filename string) (reader io.ReaderAt, closer func(), err error) {
 			full_path := filepath.Join(
 				filepath.Dir(*info_command_file_arg), filename)
 			fd, err := os.Open(full_path)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
-			reader, err := ntfs_parser.NewPagedReader(
+			reader, err = ntfs_parser.NewPagedReader(
 				getReader(fd), 1024, 10000)
 			return reader, func() { fd.Close() }, nil
 		})

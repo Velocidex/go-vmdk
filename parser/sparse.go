@@ -30,11 +30,35 @@ type SparseExtent struct {
 }
 
 func (self *SparseExtent) Close() {
-	self.closer()
+	if self.closer != nil {
+		self.closer()
+	}
 }
 
 func (self *SparseExtent) Debug() {
 	fmt.Println(self.header.DebugString())
+}
+
+func (self *SparseExtent) TotalSize() int64 {
+	return self.total_size
+}
+
+func (self *SparseExtent) VirtualOffset() int64 {
+	return self.offset
+}
+
+func (self *SparseExtent) ReadAt(buf []byte, offset int64) (int, error) {
+	start, available_length, err := self.getGrainForOffset(offset)
+	if err != nil {
+		return 0, nil
+	}
+
+	to_read := int64(len(buf))
+	if to_read > available_length {
+		to_read = available_length
+	}
+
+	return self.reader.ReadAt(buf[:to_read], start)
 }
 
 func (self *SparseExtent) getGrainForOffset(offset int64) (
