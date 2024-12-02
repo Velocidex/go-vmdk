@@ -1,6 +1,6 @@
 module github.com/Velocidex/go-vmdk
 
-go 1.23
+go 1.23.2
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
