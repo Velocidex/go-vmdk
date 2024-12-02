@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"slices"
+	"sort"
 	"strings"
 )
 
@@ -47,26 +47,27 @@ func (self *VMDKContext) Close() {
 func (self *VMDKContext) getExtentForOffset(offset int64) (
 	extent Extent, err error) {
 
-	n, found := slices.BinarySearchFunc(self.extents,
-		offset, func(item Extent, offset int64) int {
-			if offset < item.VirtualOffset() {
-				return 1
-			} else if offset == item.VirtualOffset() {
-				return 0
-			}
-			return -1
+	n := sort.Search(len(self.extents),
+		func(i int) bool {
+			extent := self.extents[i]
+			virtual_offset := extent.VirtualOffset()
+
+			return virtual_offset > offset
 		})
-	if found {
-		n++
-	}
 
 	if n < 1 || n > len(self.extents) {
 		return nil, io.EOF
 	}
 
 	extent = self.extents[n-1]
-	if extent.VirtualOffset() > offset ||
-		extent.VirtualOffset()+extent.TotalSize() < offset {
+	virtual_offset := extent.VirtualOffset()
+	extent_size := extent.TotalSize()
+
+	// extent starts after offset.
+	if virtual_offset > offset ||
+
+		// extent ends before offset
+		virtual_offset+extent_size < offset {
 		return nil, io.EOF
 	}
 
