@@ -188,7 +188,7 @@ func GetVMDKContext(
 
 				switch extent_type {
 				case "SPARSE":
-					extent, err := GetSpaseExtent(reader)
+					extent, err := GetSparseExtent(reader)
 					if err != nil {
 						return nil, fmt.Errorf("While opening %v: %w",
 							extent_filename, err)
