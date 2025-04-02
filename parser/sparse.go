@@ -81,7 +81,7 @@ func (self *SparseExtent) getGrainForOffset(offset int64) (
 	return grain_start + offset_within_grain, self.grain_size - offset_within_grain, nil
 }
 
-func GetSpaseExtent(reader io.ReaderAt) (*SparseExtent, error) {
+func GetSparseExtent(reader io.ReaderAt) (*SparseExtent, error) {
 	profile := NewVMDKProfile()
 	res := &SparseExtent{
 		profile: profile,
