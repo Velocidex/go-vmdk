@@ -6,6 +6,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -16,7 +17,7 @@ const (
 
 var (
 	StartExtentRegex = regexp.MustCompile("^# Extent description")
-	ExtentRegex      = regexp.MustCompile(`(RW|R) (\d+) ([A-Z]+) "([^"]+)"`)
+	ExtentRegex      = regexp.MustCompile(`(RW|R) (\d+) ([A-Z]+) "([^"]+)"(?: (\d+))?`)
 )
 
 type VMDKContext struct {
@@ -177,8 +178,20 @@ func GetVMDKContext(
 		if state == "Extents" {
 			match := ExtentRegex.FindStringSubmatch(line)
 			if len(match) > 0 {
+				sectors, err := parseInt(match[2])
+				if err != nil {
+					return nil, err
+				}
 				extent_type := match[3]
 				extent_filename := match[4]
+
+				offsetSectors := int64(0)
+				if len(match) >= 6 && match[5] != "" {
+					offsetSectors, err = parseInt(match[5])
+					if err != nil {
+						return nil, fmt.Errorf("error occured while parsing offsetSectors: %w", err)
+					}
+				}
 
 				// Try to open the extent file.
 				reader, closer, err := opener(extent_filename)
@@ -190,8 +203,7 @@ func GetVMDKContext(
 				case "SPARSE":
 					extent, err := GetSparseExtent(reader)
 					if err != nil {
-						return nil, fmt.Errorf("While opening %v: %w",
-							extent_filename, err)
+						return nil, fmt.Errorf("while opening %v: %w", extent_filename, err)
 					}
 
 					extent.offset = res.total_size
@@ -201,7 +213,23 @@ func GetVMDKContext(
 					res.total_size += extent.total_size
 
 					res.extents = append(res.extents, extent)
+				case "FLAT", "VMFS":
+					extent, err := GetFlatExtent(
+						reader,
+						extent_filename,
+						offsetSectors,
+						sectors,
+						res.total_size,
+						profile,
+						closer,
+					)
 
+					if err != nil {
+						return nil, fmt.Errorf("while opening %v: %w", extent_filename, err)
+					}
+
+					res.total_size += extent.TotalSize()
+					res.extents = append(res.extents, extent)
 				default:
 					return nil, errors.New("Unsupported extent type " + extent_type)
 				}
@@ -213,6 +241,13 @@ func GetVMDKContext(
 	}
 
 	res.normalizeExtents()
-
 	return res, nil
+}
+
+func parseInt(s string) (int64, error) {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }

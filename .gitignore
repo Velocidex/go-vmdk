@@ -1,2 +1,4 @@
 vmdk
 vmdk.exe
+.vscode/
+testscript.sh
